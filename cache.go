@@ -11,7 +11,8 @@ type Cache struct {
 	CleanupInterval time.Duration
 }
 
-// New will instantiate a new Cache
+// New will instantiate a new Cache with a TTL and cleanupInterval.
+// Each of these can be disabled by passing `-1` in their place
 func New(TTL time.Duration, cleanupInterval time.Duration) *Cache {
 	cache := &Cache{
 		TTL:             TTL,
@@ -50,11 +51,12 @@ func (c *Cache) Put(key string, value interface{}) {
 	c.entries = append(c.entries, e)
 }
 
-// Get will retrieve the value from the cache if it exists
+// Get will retrieve the value from the cache if it exists.
+// If TTL is enabled, it will lazy delete expired entries on lookup.
 func (c *Cache) Get(key string) (interface{}, bool) {
 	for i, entry := range c.entries {
 		if entry.key == key {
-			if entry.IsExpired() && c.TTL >= 0 {
+			if entry.isExpired() && c.TTL >= 0 {
 				c.removeEntry(i)
 				return nil, false
 			}
@@ -65,7 +67,7 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 	return nil, false
 }
 
-// Delete will remove an item from the Cache idempotently
+// Delete will remove an item from the Cache idempotently.
 func (c *Cache) Delete(key string) {
 	for i, e := range c.entries {
 		if e.key == key {
@@ -74,11 +76,13 @@ func (c *Cache) Delete(key string) {
 	}
 }
 
+// Cache Helper functions
+
 func (c *Cache) processCleanupInterval() {
 	time.Sleep(c.CleanupInterval)
 
 	for i, e := range c.entries {
-		if e.IsExpired() {
+		if e.isExpired() {
 			c.removeEntry(i)
 		}
 	}
@@ -98,7 +102,7 @@ type entry struct {
 	expiryTime int64
 }
 
-func (e *entry) IsExpired() bool {
+func (e *entry) isExpired() bool {
 	if e.expiryTime >= 0 {
 		return time.Now().Unix() >= e.expiryTime
 	}

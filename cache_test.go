@@ -249,7 +249,7 @@ func TestCache_Delete(t *testing.T) {
 	}
 }
 
-func Test_entry_IsExpired(t *testing.T) {
+func Test_entry_isExpired(t *testing.T) {
 	type fields struct {
 		key        string
 		value      interface{}
@@ -286,8 +286,8 @@ func Test_entry_IsExpired(t *testing.T) {
 				value:      tt.fields.value,
 				expiryTime: tt.fields.expiryTime,
 			}
-			if got := e.IsExpired(); got != tt.want {
-				t.Errorf("entry.IsExpired() = %v, want %v", got, tt.want)
+			if got := e.isExpired(); got != tt.want {
+				t.Errorf("entry.isExpired() = %v, want %v", got, tt.want)
 			}
 		})
 	}
