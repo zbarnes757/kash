@@ -33,9 +33,7 @@ func (c *Cache) Put(key string, value interface{}) {
 
 	for i, e := range c.entries {
 		if e.key == key {
-			c.entries[i] = c.entries[len(c.entries)-1]
-			c.entries[len(c.entries)-1] = e
-			c.entries = c.entries[:len(c.entries)-1]
+			c.removeEntry(i)
 		}
 	}
 
