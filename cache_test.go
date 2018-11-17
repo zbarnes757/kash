@@ -9,7 +9,7 @@ import (
 // TODO: figure out how to test for go processes as well
 func TestNew(t *testing.T) {
 	type args struct {
-		defaultTTL      time.Duration
+		TTL             time.Duration
 		cleanupInterval time.Duration
 	}
 	tests := []struct {
@@ -20,18 +20,29 @@ func TestNew(t *testing.T) {
 		{
 			name: "Should generate a new Cache",
 			args: args{
-				defaultTTL:      1 * time.Minute,
+				TTL:             1 * time.Minute,
 				cleanupInterval: 1 * time.Minute,
 			},
 			want: &Cache{
-				DefaultTTL:      1 * time.Minute,
+				TTL:             1 * time.Minute,
 				CleanupInterval: 1 * time.Minute,
+			},
+		},
+		{
+			name: "Should generate a new Cache with TTL and cleanupInterval set to -1",
+			args: args{
+				TTL:             -1,
+				cleanupInterval: -1,
+			},
+			want: &Cache{
+				TTL:             -1,
+				CleanupInterval: -1,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := New(tt.args.defaultTTL, tt.args.cleanupInterval); !reflect.DeepEqual(got, tt.want) {
+			if got := New(tt.args.TTL, tt.args.cleanupInterval); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("New() = %v, want %v", got, tt.want)
 			}
 		})
@@ -40,8 +51,8 @@ func TestNew(t *testing.T) {
 
 func TestCache_Put(t *testing.T) {
 	type fields struct {
-		entries    []entry
-		DefaultTTL time.Duration
+		entries []entry
+		TTL     time.Duration
 	}
 
 	type args struct {
@@ -55,8 +66,10 @@ func TestCache_Put(t *testing.T) {
 		args   args
 	}{
 		{
-			name:   "Should add new entry",
-			fields: fields{},
+			name: "Should add new entry",
+			fields: fields{
+				TTL: 1 * time.Minute,
+			},
 			args: args{
 				key:   "key",
 				value: "value",
@@ -71,6 +84,7 @@ func TestCache_Put(t *testing.T) {
 						value: "value1",
 					},
 				},
+				TTL: 1 * time.Minute,
 			},
 			args: args{
 				key:   "key",
@@ -82,8 +96,8 @@ func TestCache_Put(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Cache{
-				entries:    tt.fields.entries,
-				DefaultTTL: tt.fields.DefaultTTL,
+				entries: tt.fields.entries,
+				TTL:     tt.fields.TTL,
 			}
 			c.Put(tt.args.key, tt.args.value)
 
@@ -97,8 +111,8 @@ func TestCache_Put(t *testing.T) {
 
 func TestCache_Get(t *testing.T) {
 	type fields struct {
-		entries    []entry
-		DefaultTTL time.Duration
+		entries []entry
+		TTL     time.Duration
 	}
 
 	type args struct {
@@ -117,8 +131,9 @@ func TestCache_Get(t *testing.T) {
 			fields: fields{
 				entries: []entry{
 					entry{
-						key:   "key",
-						value: "value",
+						key:        "key",
+						value:      "value",
+						expiryTime: time.Now().Add(1 * time.Second).Unix(),
 					},
 				},
 			},
@@ -144,13 +159,31 @@ func TestCache_Get(t *testing.T) {
 			want:  nil,
 			want1: false,
 		},
+		{
+			name: "Should lazy delete an existing entry if expired and cache has TTL",
+			fields: fields{
+				entries: []entry{
+					entry{
+						key:        "key",
+						value:      "value",
+						expiryTime: time.Now().Add(-1 * time.Minute).Unix(),
+					},
+				},
+				TTL: 1 * time.Minute,
+			},
+			args: args{
+				key: "key",
+			},
+			want:  nil,
+			want1: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Cache{
-				entries:    tt.fields.entries,
-				DefaultTTL: tt.fields.DefaultTTL,
+				entries: tt.fields.entries,
+				TTL:     tt.fields.TTL,
 			}
 			got, got1 := c.Get(tt.args.key)
 			if !reflect.DeepEqual(got, tt.want) {
@@ -165,8 +198,8 @@ func TestCache_Get(t *testing.T) {
 
 func TestCache_Delete(t *testing.T) {
 	type fields struct {
-		entries    []entry
-		DefaultTTL time.Duration
+		entries []entry
+		TTL     time.Duration
 	}
 
 	type args struct {
@@ -204,8 +237,8 @@ func TestCache_Delete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Cache{
-				entries:    tt.fields.entries,
-				DefaultTTL: tt.fields.DefaultTTL,
+				entries: tt.fields.entries,
+				TTL:     tt.fields.TTL,
 			}
 			c.Delete(tt.args.key)
 

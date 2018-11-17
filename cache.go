@@ -7,28 +7,38 @@ import (
 // Cache is a storage for entries that need to be kept alive for a certain time period
 type Cache struct {
 	entries         []entry
-	DefaultTTL      time.Duration
+	TTL             time.Duration
 	CleanupInterval time.Duration
 }
 
 // New will instantiate a new Cache
-func New(defaultTTL time.Duration, cleanupInterval time.Duration) *Cache {
+func New(TTL time.Duration, cleanupInterval time.Duration) *Cache {
 	cache := &Cache{
-		DefaultTTL:      defaultTTL,
+		TTL:             TTL,
 		CleanupInterval: cleanupInterval,
 	}
 
-	go cache.processCleanupInterval()
+	if cache.CleanupInterval >= 0 {
+		go cache.processCleanupInterval()
+	}
 
 	return cache
 }
 
 // Put will upsert a key/value pair to the cache
 func (c *Cache) Put(key string, value interface{}) {
+	var expiryTime int64
+
+	if c.TTL >= 0 {
+		expiryTime = time.Now().Add(c.TTL).Unix()
+	} else {
+		expiryTime = -1
+	}
+
 	e := entry{
 		key:        key,
 		value:      value,
-		expiryTime: time.Now().Add(c.DefaultTTL).Unix(),
+		expiryTime: expiryTime,
 	}
 
 	for i, e := range c.entries {
@@ -42,8 +52,12 @@ func (c *Cache) Put(key string, value interface{}) {
 
 // Get will retrieve the value from the cache if it exists
 func (c *Cache) Get(key string) (interface{}, bool) {
-	for _, entry := range c.entries {
+	for i, entry := range c.entries {
 		if entry.key == key {
+			if entry.IsExpired() && c.TTL >= 0 {
+				c.removeEntry(i)
+				return nil, false
+			}
 			return entry.value, true
 		}
 	}
@@ -85,5 +99,9 @@ type entry struct {
 }
 
 func (e *entry) IsExpired() bool {
-	return time.Now().Unix() >= e.expiryTime
+	if e.expiryTime >= 0 {
+		return time.Now().Unix() >= e.expiryTime
+	}
+
+	return false
 }

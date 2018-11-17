@@ -24,5 +24,12 @@ func main() {
 
   // delete a key/value pair from the cache
   cache.Delete("myKey")
+
+  // To disable automatic cleanup, set value to -1
+  // This will still lazy delete an entry on lookup if it has expired
+  cache = kash.New(1 * time.Minute, -1)
+
+  // To prevent any automatic deletion of entries, set both values to -1
+  cache = kash.New(-1, -1)
 }
 ```
