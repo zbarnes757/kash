@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// TODO: figure out how to test for go processes as well
 func TestNew(t *testing.T) {
 	type args struct {
 		TTL             time.Duration
@@ -255,8 +254,10 @@ func TestCache_Delete(t *testing.T) {
 			},
 		},
 		{
-			name:   "Should idemptontly delete an entry",
-			fields: fields{},
+			name: "Should idemptontly delete an entry",
+			fields: fields{
+				entries: []entry{},
+			},
 			args: args{
 				key: "key",
 			},
@@ -271,8 +272,8 @@ func TestCache_Delete(t *testing.T) {
 			}
 			c.Delete(tt.args.key)
 
-			if _, found := c.Get(tt.args.key); found {
-				t.Error("Cache did not delete desired key")
+			if !reflect.DeepEqual(c.entries, []entry{}) {
+				t.Errorf("Cache.entries = %v, want []", c.entries)
 			}
 		})
 	}
@@ -307,6 +308,15 @@ func Test_entry_isExpired(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "Should return false if expiry time is -1",
+			fields: fields{
+				key:        "key",
+				value:      "value",
+				expiryTime: -1,
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -317,6 +327,51 @@ func Test_entry_isExpired(t *testing.T) {
 			}
 			if got := e.isExpired(); got != tt.want {
 				t.Errorf("entry.isExpired() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TODO: find better way to test than by sleeping
+func TestCache_processCleanupInterval(t *testing.T) {
+	type fields struct {
+		entries         []entry
+		TTL             time.Duration
+		CleanupInterval time.Duration
+	}
+	tests := []struct {
+		name   string
+		fields fields
+	}{
+		{
+			name: "Should cleanup expired entries",
+			fields: fields{
+				entries: []entry{
+					entry{
+						key:        "key",
+						value:      "value",
+						expiryTime: time.Now().Add(-1 * time.Minute).Unix(),
+					},
+				},
+				TTL:             1 * time.Minute,
+				CleanupInterval: 1 * time.Nanosecond,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Cache{
+				entries:         tt.fields.entries,
+				TTL:             tt.fields.TTL,
+				CleanupInterval: tt.fields.CleanupInterval,
+			}
+
+			go c.processCleanupInterval()
+
+			time.Sleep(10 * time.Millisecond)
+
+			if !reflect.DeepEqual(c.entries, []entry{}) {
+				t.Errorf("Cache.entries = %v, want []", c.entries)
 			}
 		})
 	}
