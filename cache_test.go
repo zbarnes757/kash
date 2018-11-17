@@ -60,19 +60,28 @@ func TestCache_Put(t *testing.T) {
 		value interface{}
 	}
 
+	TTL := 1 * time.Minute
+	expiryTime := time.Now().Add(TTL).Unix()
+
 	tests := []struct {
 		name   string
 		fields fields
 		args   args
+		want   entry
 	}{
 		{
 			name: "Should add new entry",
 			fields: fields{
-				TTL: 1 * time.Minute,
+				TTL: TTL,
 			},
 			args: args{
 				key:   "key",
 				value: "value",
+			},
+			want: entry{
+				key:        "key",
+				value:      "value",
+				expiryTime: expiryTime,
 			},
 		},
 		{
@@ -84,11 +93,31 @@ func TestCache_Put(t *testing.T) {
 						value: "value1",
 					},
 				},
-				TTL: 1 * time.Minute,
+				TTL: TTL,
 			},
 			args: args{
 				key:   "key",
 				value: "value2",
+			},
+			want: entry{
+				key:        "key",
+				value:      "value2",
+				expiryTime: expiryTime,
+			},
+		},
+		{
+			name: "Should set expiryTime of the entry to -1 to match TTL",
+			fields: fields{
+				TTL: -1,
+			},
+			args: args{
+				key:   "key",
+				value: "value",
+			},
+			want: entry{
+				key:        "key",
+				value:      "value",
+				expiryTime: -1,
 			},
 		},
 	}
@@ -101,9 +130,9 @@ func TestCache_Put(t *testing.T) {
 			}
 			c.Put(tt.args.key, tt.args.value)
 
-			v, _ := c.Get(tt.args.key)
-			if v != tt.args.value {
-				t.Error("Returned value did not match inserted value", v)
+			got := c.entries[0]
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Cache.Get() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
