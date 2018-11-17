@@ -23,7 +23,7 @@ func New(defaultTTL time.Duration, cleanupInterval time.Duration) *Cache {
 	return cache
 }
 
-// Put will add a upsert key/value pair to the cache
+// Put will upsert a key/value pair to the cache
 func (c *Cache) Put(key string, value interface{}) {
 	e := entry{
 		key:        key,
