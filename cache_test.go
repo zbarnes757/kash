@@ -23,6 +23,7 @@ func TestNew(t *testing.T) {
 				cleanupInterval: 1 * time.Minute,
 			},
 			want: &Cache{
+				entries:         map[string]entry{},
 				TTL:             1 * time.Minute,
 				CleanupInterval: 1 * time.Minute,
 			},
@@ -34,6 +35,7 @@ func TestNew(t *testing.T) {
 				cleanupInterval: -1,
 			},
 			want: &Cache{
+				entries:         map[string]entry{},
 				TTL:             -1,
 				CleanupInterval: -1,
 			},
@@ -50,7 +52,7 @@ func TestNew(t *testing.T) {
 
 func TestCache_Put(t *testing.T) {
 	type fields struct {
-		entries []entry
+		entries map[string]entry
 		TTL     time.Duration
 	}
 
@@ -71,14 +73,14 @@ func TestCache_Put(t *testing.T) {
 		{
 			name: "Should add new entry",
 			fields: fields{
-				TTL: TTL,
+				entries: map[string]entry{},
+				TTL:     TTL,
 			},
 			args: args{
 				key:   "key",
 				value: "value",
 			},
 			want: entry{
-				key:        "key",
 				value:      "value",
 				expiryTime: expiryTime,
 			},
@@ -86,9 +88,8 @@ func TestCache_Put(t *testing.T) {
 		{
 			name: "Should replace an existing value for a key",
 			fields: fields{
-				entries: []entry{
-					entry{
-						key:   "key",
+				entries: map[string]entry{
+					"key": entry{
 						value: "value1",
 					},
 				},
@@ -99,7 +100,6 @@ func TestCache_Put(t *testing.T) {
 				value: "value2",
 			},
 			want: entry{
-				key:        "key",
 				value:      "value2",
 				expiryTime: expiryTime,
 			},
@@ -107,14 +107,14 @@ func TestCache_Put(t *testing.T) {
 		{
 			name: "Should set expiryTime of the entry to -1 to match TTL",
 			fields: fields{
-				TTL: -1,
+				entries: map[string]entry{},
+				TTL:     -1,
 			},
 			args: args{
 				key:   "key",
 				value: "value",
 			},
 			want: entry{
-				key:        "key",
 				value:      "value",
 				expiryTime: -1,
 			},
@@ -129,7 +129,7 @@ func TestCache_Put(t *testing.T) {
 			}
 			c.Put(tt.args.key, tt.args.value)
 
-			got := c.entries[0]
+			got := c.entries[tt.args.key]
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Cache.Get() got = %v, want %v", got, tt.want)
 			}
@@ -139,7 +139,7 @@ func TestCache_Put(t *testing.T) {
 
 func TestCache_Get(t *testing.T) {
 	type fields struct {
-		entries []entry
+		entries map[string]entry
 		TTL     time.Duration
 	}
 
@@ -157,9 +157,8 @@ func TestCache_Get(t *testing.T) {
 		{
 			name: "Should return an existing entry",
 			fields: fields{
-				entries: []entry{
-					entry{
-						key:        "key",
+				entries: map[string]entry{
+					"key": entry{
 						value:      "value",
 						expiryTime: time.Now().Add(1 * time.Second).Unix(),
 					},
@@ -174,9 +173,8 @@ func TestCache_Get(t *testing.T) {
 		{
 			name: "Should return nil and false for an non-existant entry",
 			fields: fields{
-				entries: []entry{
-					entry{
-						key:   "key",
+				entries: map[string]entry{
+					"key": entry{
 						value: "value",
 					},
 				},
@@ -190,9 +188,8 @@ func TestCache_Get(t *testing.T) {
 		{
 			name: "Should lazy delete an existing entry if expired and cache has TTL",
 			fields: fields{
-				entries: []entry{
-					entry{
-						key:        "key",
+				entries: map[string]entry{
+					"key": entry{
 						value:      "value",
 						expiryTime: time.Now().Add(-1 * time.Minute).Unix(),
 					},
@@ -226,7 +223,7 @@ func TestCache_Get(t *testing.T) {
 
 func TestCache_Delete(t *testing.T) {
 	type fields struct {
-		entries []entry
+		entries map[string]entry
 		TTL     time.Duration
 	}
 
@@ -242,9 +239,8 @@ func TestCache_Delete(t *testing.T) {
 		{
 			name: "Should delete an entry",
 			fields: fields{
-				entries: []entry{
-					entry{
-						key:   "key",
+				entries: map[string]entry{
+					"key": entry{
 						value: "value",
 					},
 				},
@@ -256,7 +252,7 @@ func TestCache_Delete(t *testing.T) {
 		{
 			name: "Should idemptontly delete an entry",
 			fields: fields{
-				entries: []entry{},
+				entries: map[string]entry{},
 			},
 			args: args{
 				key: "key",
@@ -272,8 +268,8 @@ func TestCache_Delete(t *testing.T) {
 			}
 			c.Delete(tt.args.key)
 
-			if !reflect.DeepEqual(c.entries, []entry{}) {
-				t.Errorf("Cache.entries = %v, want []", c.entries)
+			if len(c.entries) != 0 {
+				t.Errorf("Expected c.entries to have length of 0, got %v", len(c.entries))
 			}
 		})
 	}
@@ -281,7 +277,6 @@ func TestCache_Delete(t *testing.T) {
 
 func Test_entry_isExpired(t *testing.T) {
 	type fields struct {
-		key        string
 		value      interface{}
 		expiryTime int64
 	}
@@ -293,7 +288,6 @@ func Test_entry_isExpired(t *testing.T) {
 		{
 			name: "Should return true if expiry time has passed",
 			fields: fields{
-				key:        "key",
 				value:      "value",
 				expiryTime: time.Now().Add(-1 * time.Second).Unix(),
 			},
@@ -302,7 +296,6 @@ func Test_entry_isExpired(t *testing.T) {
 		{
 			name: "Should return false if expiry time has not passed",
 			fields: fields{
-				key:        "key",
 				value:      "value",
 				expiryTime: time.Now().Add(1 * time.Second).Unix(),
 			},
@@ -311,7 +304,6 @@ func Test_entry_isExpired(t *testing.T) {
 		{
 			name: "Should return false if expiry time is -1",
 			fields: fields{
-				key:        "key",
 				value:      "value",
 				expiryTime: -1,
 			},
@@ -321,7 +313,6 @@ func Test_entry_isExpired(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &entry{
-				key:        tt.fields.key,
 				value:      tt.fields.value,
 				expiryTime: tt.fields.expiryTime,
 			}
@@ -335,7 +326,7 @@ func Test_entry_isExpired(t *testing.T) {
 // TODO: find better way to test than by sleeping
 func TestCache_processCleanupInterval(t *testing.T) {
 	type fields struct {
-		entries         []entry
+		entries         map[string]entry
 		TTL             time.Duration
 		CleanupInterval time.Duration
 	}
@@ -346,9 +337,8 @@ func TestCache_processCleanupInterval(t *testing.T) {
 		{
 			name: "Should cleanup expired entries",
 			fields: fields{
-				entries: []entry{
-					entry{
-						key:        "key",
+				entries: map[string]entry{
+					"key": entry{
 						value:      "value",
 						expiryTime: time.Now().Add(-1 * time.Minute).Unix(),
 					},
@@ -370,8 +360,8 @@ func TestCache_processCleanupInterval(t *testing.T) {
 
 			time.Sleep(10 * time.Millisecond)
 
-			if !reflect.DeepEqual(c.entries, []entry{}) {
-				t.Errorf("Cache.entries = %v, want []", c.entries)
+			if len(c.entries) != 0 {
+				t.Errorf("Expected length of Cache.entries to be 0, got %v", len(c.entries))
 			}
 		})
 	}
