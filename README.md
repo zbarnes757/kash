@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/zbarnes757/kash.svg?branch=master)](https://travis-ci.org/zbarnes757/kash) [![](https://godoc.org/github.com/zbarnes757/kash?status.svg)](http://godoc.org/github.com/zbarnes757/kash)
+
 # Kash
 
 Kash is a simple in-memory cache for Go that uses a simple TTL and cleanup system.
