@@ -28,7 +28,7 @@ func New(TTL time.Duration, cleanupInterval time.Duration) *Cache {
 }
 
 // Put will upsert a key/value pair to the cache
-func (c *Cache) Put(key string, value interface{}) {
+func (c *Cache) Put(key string, value EntryValue) {
 	var expiryTime int64
 
 	if c.TTL >= 0 {
@@ -45,13 +45,9 @@ func (c *Cache) Put(key string, value interface{}) {
 
 // Get will retrieve the value from the cache if it exists.
 // If TTL is enabled, it will lazy delete expired entries on lookup.
-func (c *Cache) Get(key string) (interface{}, bool) {
+func (c *Cache) Get(key string) (EntryValue, bool) {
 	e := c.entries[key]
-	if e == (entry{}) {
-		return nil, false
-	}
-
-	if e.isExpired() && c.TTL >= 0 {
+	if e == (entry{}) || e.isExpired() && c.TTL >= 0 {
 		delete(c.entries, key)
 		return nil, false
 	}
@@ -80,9 +76,12 @@ func (c *Cache) processCleanupInterval() {
 }
 
 type entry struct {
-	value      interface{}
+	value      EntryValue
 	expiryTime int64
 }
+
+// EntryValue is any interface that can be saved by Go
+type EntryValue interface{}
 
 func (e *entry) isExpired() bool {
 	if e.expiryTime >= 0 {

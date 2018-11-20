@@ -137,6 +137,51 @@ func TestCache_Put(t *testing.T) {
 	}
 }
 
+func BenchmarkCache_Put(b *testing.B) {
+	type fields struct {
+		entries map[string]entry
+		TTL     time.Duration
+	}
+
+	type args struct {
+		key   string
+		value interface{}
+	}
+
+	TTL := 1 * time.Minute
+	expiryTime := time.Now().Add(TTL).Unix()
+
+	test := struct {
+		name   string
+		fields fields
+		args   args
+		want   entry
+	}{
+		name: "Should add new entry",
+		fields: fields{
+			entries: map[string]entry{},
+			TTL:     TTL,
+		},
+		args: args{
+			key:   "key",
+			value: "value",
+		},
+		want: entry{
+			value:      "value",
+			expiryTime: expiryTime,
+		},
+	}
+
+	c := &Cache{
+		entries: test.fields.entries,
+		TTL:     test.fields.TTL,
+	}
+
+	for n := 0; n < b.N; n++ {
+		c.Put(test.args.key, test.args.value)
+	}
+}
+
 func TestCache_Get(t *testing.T) {
 	type fields struct {
 		entries map[string]entry
@@ -218,6 +263,50 @@ func TestCache_Get(t *testing.T) {
 				t.Errorf("Cache.Get() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
+	}
+}
+
+func BenchmarkCache_Get(b *testing.B) {
+	type fields struct {
+		entries map[string]entry
+		TTL     time.Duration
+	}
+
+	type args struct {
+		key string
+	}
+
+	TTL := 1 * time.Minute
+	expiryTime := time.Now().Add(TTL).Unix()
+
+	test := struct {
+		name   string
+		fields fields
+		args   args
+		want   entry
+	}{
+		name: "Should add new entry",
+		fields: fields{
+			entries: map[string]entry{
+				"key": entry{
+					value:      "value",
+					expiryTime: expiryTime,
+				},
+			},
+			TTL: TTL,
+		},
+		args: args{
+			key: "key",
+		},
+	}
+
+	c := &Cache{
+		entries: test.fields.entries,
+		TTL:     test.fields.TTL,
+	}
+
+	for n := 0; n < b.N; n++ {
+		c.Get(test.args.key)
 	}
 }
 
