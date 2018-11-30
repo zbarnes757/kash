@@ -1,4 +1,4 @@
-package cache
+package kash
 
 import (
 	"time"
